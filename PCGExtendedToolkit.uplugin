@@ -502,10 +502,6 @@
     {
       "Name": "PCGGeometryScriptInterop",
       "Enabled": true
-    },
-    {
-      "Name": "StructUtils",
-      "Enabled": true
     }
   ]
 }
