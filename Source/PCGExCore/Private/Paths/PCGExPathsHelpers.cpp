@@ -155,7 +155,9 @@ namespace PCGExPaths
 				}
 			}
 
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			PCGEX_MAKE_SHARED(SplineStruct, FPCGSplineStruct)
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			SplineStruct->Initialize(SplinePoints, bClosedLoop, FTransform::Identity);
 			return SplineStruct;
 		}
@@ -190,7 +192,9 @@ namespace PCGExPaths
 				SplinePoints[i] = FSplinePoint(static_cast<float>(i), TR.GetLocation(), SplinePositions.Points[i].ArriveTangent, SplinePositions.Points[i].LeaveTangent, TR.GetRotation().Rotator(), TR.GetScale3D(), GetPointType(SplinePositions.Points[i].InterpMode));
 			}
 
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			PCGEX_MAKE_SHARED(SplineStruct, FPCGSplineStruct)
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			SplineStruct->Initialize(SplinePoints, Original.bClosedLoop, Original.GetTransform());
 			return SplineStruct;
 		}

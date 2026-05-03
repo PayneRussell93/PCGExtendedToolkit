@@ -89,7 +89,9 @@ bool FPCGExCopyToPathsElement::Boot(FPCGExContext* InContext) const
 
 			TSharedPtr<PCGExData::FPointIO> PointIO = MakeShared<PCGExData::FPointIO>(Context->GetOrCreateHandle(), PointData);
 			const TSharedPtr<PCGExData::FFacade> Facade = MakeShared<PCGExData::FFacade>(PointIO.ToSharedRef());
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			const TSharedPtr<FPCGSplineStruct> SplineStruct = MakeShared<FPCGSplineStruct>();
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 			Facade->Idx = Context->DeformersFacades.Add(Facade);
 			Context->LocalDeformers.Add(SplineStruct);
