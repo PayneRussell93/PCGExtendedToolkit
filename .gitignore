@@ -1,14 +1,19 @@
-
-Binaries/*
-Build/*
-Intermediate/*
-Plugins/*/Intermediate/*
-.claude/*
+/Binaries/
+/Intermediate/
+/DerivedDataCache/
+/Saved/
 *.generated.h
-
-# Cache files for the editor to use
-DerivedDataCache/*
-
-# Ignore MacOS finder attribute file
+*.gen.cpp
+*.target
+.vs/
+*.sln
+*.vcxproj*
+.vscode/compileCommands_*/
+.vscode/c_cpp_properties.json
+*.dll
+*.pdb
+*.lib
+*.exp
+*.obj
+Thumbs.db
 .DS_Store
-
