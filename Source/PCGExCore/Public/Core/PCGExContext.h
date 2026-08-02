@@ -43,6 +43,8 @@ namespace PCGEx
 {
 	class FManagedObjects;
 	class FWorkHandle;
+
+	PCGEXCORE_API bool AnyGenerationInFlight();
 }
 
 namespace PCGExHelpers
@@ -75,6 +77,14 @@ protected:
 
 	int32 LoopIndex = INDEX_NONE;
 	int32 TopLoopIndex = INDEX_NONE;
+
+	/**
+	 * Context-family tags, appended by derived-context constructors down the inheritance chain
+	 * (mirrors the ctor chain, so a tag marks "this context IS-A member of that family"). Lets
+	 * code handed a plain FPCGExContext* (filters, shared subsystems) check family membership
+	 * before a static_cast -- there is no RTTI. Immutable after construction: thread-safe to read.
+	 */
+	TArray<FName, TInlineAllocator<4>> ContextTags;
 
 	bool bPreparationDispatchedOffThread = false;
 	bool bExecutionDispatchedOffThread = false;
@@ -113,6 +123,12 @@ public:
 	}
 
 	bool IsRuntimeGen() const;
+
+	/** Whether this context belongs to the given family. See ContextTags. */
+	bool HasContextTag(const FName InTag) const
+	{
+		return ContextTags.Contains(InTag);
+	}
 
 	bool bScopedAttributeGet = false;
 	bool bPropagateAbortedExecution = false;
