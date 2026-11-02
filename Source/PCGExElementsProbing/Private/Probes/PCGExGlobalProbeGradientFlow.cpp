@@ -109,6 +109,11 @@ void FPCGExProbeGradientFlow::ProcessAll(TSet<uint64>& OutEdges) const
 					return;
 				}
 
+				// A gradient has no defined direction between coincident points.
+				if (DistSq <= UE_DOUBLE_SMALL_NUMBER)
+				{
+					return;
+				}
 				const double Dist = FMath::Sqrt(DistSq);
 				const double ValueDiff = FlowBuffer->Read(OtherIndex) - CurrentFlow;
 				const double Gradient = ValueDiff / Dist;

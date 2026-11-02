@@ -3,6 +3,7 @@
 
 #include "Probes/PCGExGlobalProbeKNN.h"
 #include "PCGExVersion.h"
+#include <algorithm>
 
 #include "Data/PCGExPointIO.h"
 #include "Details/PCGExSettingsDetails.h"
@@ -66,7 +67,7 @@ void FPCGExProbeKNN::ProcessAll(TSet<uint64>& OutEdges) const
 	// TODO : Use octree for faster queries, this is crude
 
 	// For each point, find K nearest neighbors
-	TArray<TPair<float, int32>> Distances;
+	TArray<TPair<double, int32>> Distances;
 	Distances.SetNum(NumPoints);
 
 	const bool bMutual = Config.Mode == EPCGExProbeKNNMode::Mutual;
@@ -97,11 +98,12 @@ void FPCGExProbeKNN::ProcessAll(TSet<uint64>& OutEdges) const
 
 		const int32 ActualK = FMath::Min(K->Read(i), NumConnectable);
 
-		// Partial sort to get K smallest
-		Algo::Sort(Distances, [](const auto& A, const auto& B)
+		// Partition in linear average time; the order of the selected neighbors is irrelevant.
+		if (ActualK > 0 && ActualK < NumPoints)
 		{
-			return A.Key < B.Key;
-		});
+			std::nth_element(Distances.GetData(), Distances.GetData() + ActualK, Distances.GetData() + NumPoints,
+				[](const auto& A, const auto& B) { return A.Key == B.Key ? A.Value < B.Value : A.Key < B.Key; });
+		}
 
 		if (bMutual)
 		{

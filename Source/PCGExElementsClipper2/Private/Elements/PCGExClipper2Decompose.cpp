@@ -10,6 +10,7 @@
 #include "Data/PCGExClusterData.h"
 #include "Data/PCGExData.h"
 #include "Data/PCGExPointIO.h"
+#include "Data/Utils/PCGExDataForward.h"
 #include "Graphs/PCGExGraph.h"
 #include "Graphs/PCGExGraphBuilder.h"
 #include "Helpers/PCGExPointArrayDataHelpers.h"
@@ -162,9 +163,7 @@ void FPCGExClipper2DecomposeContext::Process(const TSharedPtr<PCGExClipper2::FPr
 	const EPCGPointNativeProperties Allocations = TemplateFacade->GetAllocations();
 	PCGExPointArrayDataHelpers::SetNumPointsAllocated(OutPoints, NumVerts, Allocations);
 
-	// Transforms written explicitly; non-transform attributes carried via ConsumeIdxMapping against the frame
-	// (template) source. Under Auto grouping a group can be multi-source (outer + hole rings); attribute carry
-	// is exact only for frame-source nodes (hole-ring nodes keep their own transform but template attributes).
+	// Frame rows provide defaults for generated vertices; source rows are overlaid below.
 	TArray<int32>& IdxMapping = VtxIO->GetIdxMapping(NumVerts);
 	TPCGValueRange<FTransform> OutTransforms = OutPoints->GetTransformValueRange();
 
@@ -182,12 +181,6 @@ void FPCGExClipper2DecomposeContext::Process(const TSharedPtr<PCGExClipper2::FPr
 		}
 		else if (V.bHasSource && AllOpData->Facades.IsValidIndex(V.SourceIdx))
 		{
-			// Hole-ring vertex from a non-frame source (Auto nesting): keep its own transform.
-			// TODO: attribute carry still uses the frame template (IdxMapping = 0), so hole-ring nodes inherit the
-			// TODO: template's point-0 attributes, not their own source's. Real per-source carry needs the union-blender.
-			// TODO: this multi-source authoring is special-cased here; Volume positions all verts uniformly from
-			// TODO: Pos/ProjectedZ. Lift one source-aware authoring path into the shared PCGExClipper2Decomposition
-			// TODO: core so both nodes handle nested/multi-source groups identically.
 			const TConstPCGValueRange<FTransform> SrcTransforms = AllOpData->Facades[V.SourceIdx]->Source->GetIn()->GetConstTransformValueRange();
 			OutTransforms[i] = SrcTransforms[V.SourcePointIdx];
 			IdxMapping[i] = 0;
@@ -208,6 +201,38 @@ void FPCGExClipper2DecomposeContext::Process(const TSharedPtr<PCGExClipper2::FPr
 
 	// Build the graph AFTER the vtx OUT buffer is sized/positioned (FGraphBuilder captures its transform range).
 	const TSharedPtr<PCGExData::FFacade> VtxFacade = MakeShared<PCGExData::FFacade>(VtxIO.ToSharedRef());
+	// Copy native properties and metadata from each non-frame source without copying its
+	// metadata entry keys, which belong to a different metadata object.
+	TMap<int32, TArray<int32>> SourceRows;
+	TMap<int32, TArray<int32>> TargetRows;
+	for (int32 i = 0; i < NumVerts; ++i)
+	{
+		const auto& V = VertexPool[i];
+		if (V.bHasSource && V.SourceIdx != FrameSrcIdx && AllOpData->Facades.IsValidIndex(V.SourceIdx))
+		{
+			SourceRows.FindOrAdd(V.SourceIdx).Add(V.SourcePointIdx);
+			TargetRows.FindOrAdd(V.SourceIdx).Add(i);
+		}
+	}
+	FPCGExForwardDetails ForwardDetails(true);
+	for (const auto& Pair : SourceRows)
+	{
+		const auto& SourceFacade = AllOpData->Facades[Pair.Key];
+		const TArray<int32>& Targets = TargetRows.FindChecked(Pair.Key);
+		EPCGPointNativeProperties NativeProperties = CarryProperties;
+		EnumRemoveFlags(NativeProperties, EPCGPointNativeProperties::MetadataEntry);
+		SourceFacade->Source->GetIn()->CopyPropertiesTo(OutPoints, Pair.Value, Targets, NativeProperties & SourceFacade->GetAllocations());
+		const auto Forward = ForwardDetails.GetHandler(SourceFacade, PCGExData::EForwardDomain::Inherit);
+		Forward->ValidateIdentities([](const PCGExData::FAttributeIdentity& Identity) { return !Identity.InDataDomain(); });
+		TPCGValueRange<int64> Entries = OutPoints->GetMetadataEntryValueRange(true);
+		for (int32 Row = 0; Row < Targets.Num(); ++Row)
+		{
+			const int32 Target = Targets[Row];
+			const PCGMetadataEntryKey Key = OutPoints->Metadata->AddEntry(Entries[Target]);
+			Entries[Target] = Key;
+			Forward->Forward(Pair.Value[Row], OutPoints->Metadata, Key);
+		}
+	}
 	const TSharedPtr<PCGExGraphs::FGraphBuilder> GraphBuilder = MakeShared<PCGExGraphs::FGraphBuilder>(VtxFacade.ToSharedRef(), &Settings->GraphBuilderDetails);
 	GraphBuilder->bInheritNodeData = false;
 	GraphBuilder->Graph->InsertEdges(EdgeKeys, -1);
